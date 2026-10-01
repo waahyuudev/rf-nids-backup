@@ -1,0 +1,33 @@
+RF-NIDS THESIS FREEZE
+=====================
+
+Freeze date:
+Thu Oct  1 08:23:55 UTC 2026
+
+Git branch:
+development
+
+Git commit:
+d14a821c76865f289a7d8b4c82271125f15a0c90
+
+Git status:
+
+Docker Compose:
+Docker Compose version v5.5.1
+
+Docker containers:
+NAME                 IMAGE                COMMAND                  SERVICE    CREATED       STATUS                 PORTS
+rf-nids-api-1        rf-nids-api          "uvicorn src.api.mai…"   api        7 hours ago   Up 7 hours (healthy)   
+rf-nids-postgres-1   postgres:16-alpine   "docker-entrypoint.s…"   postgres   3 weeks ago   Up 7 hours (healthy)   127.0.0.1:5432->5432/tcp
+
+Docker images:
+CONTAINER             REPOSITORY          TAG                 PLATFORM            IMAGE ID            SIZE                CREATED
+rf-nids-api-1         rf-nids-api         latest              linux/arm64         0ad88552931f        1.6GB               13 days ago
+rf-nids-migration-1   rf-nids-migration   latest              linux/arm64         1b8279f77831        1.6GB               2 weeks ago
+rf-nids-postgres-1    postgres            16-alpine           linux/arm64/v8      cf78e76683b9        411MB               6 weeks ago
+
+Python:
+Python 3.14.4
+
+Pip:
+pip 26.2.1 from /home/wahyudev/rf-nids/.venv/lib/python3.14/site-packages/pip (python 3.14)

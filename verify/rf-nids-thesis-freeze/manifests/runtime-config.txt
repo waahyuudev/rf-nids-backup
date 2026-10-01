@@ -1,0 +1,14 @@
+RF-NIDS RUNTIME CONFIGURATION
+============================
+
+CICFlowMeter image:
+CICFLOWMETER_V3_IMAGE=rf-nids-cicflowmeter-v3:a26aae27
+
+CICFlowMeter digest:
+CICFLOWMETER_V3_IMAGE_DIGEST=sha256:61bfd8411b6a38be89a2ee21f5998a286faef8247a24a11b5e5690721291cfe6
+
+Docker socket GID:
+DOCKER_SOCKET_GID=984
+
+Runtime monitoring host root:
+RUNTIME_MONITORING_HOST_ROOT=/home/wahyudev/rf-nids/data/runtime/monitoring

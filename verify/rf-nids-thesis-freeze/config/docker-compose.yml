@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rf_nids
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - rf_nids_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rf_nids"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migration:
+    build:
+      context: .
+    command: ["alembic", "upgrade", "head"]
+    environment: &backend-environment
+      APP_ENV: development
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8000"
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/rf_nids
+      MODEL_PATH: models/experiment_d/random_forest_rf_v2.joblib
+      MODEL_METADATA_PATH: models/experiment_d/random_forest_rf_v2_runtime_metadata.json
+      MAX_BATCH_SIZE: "1000"
+      MAX_PAGE_SIZE: "100"
+      AUTH_SESSION_HOURS: "8"
+      LOG_LEVEL: INFO
+      LEAKAGE_COLUMNS_CONFIG: config/leakage_columns.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    # Ubuntu Docker Engine deployment; see docs/docker_runtime_monitoring.md.
+    build:
+      context: .
+    command:
+      - uvicorn
+      - src.api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    network_mode: host
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]
+    group_add:
+      - "${DOCKER_SOCKET_GID:?Set DOCKER_SOCKET_GID to the host Docker socket group ID}"
+    environment:
+      <<: *backend-environment
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/rf_nids
+      RUNTIME_MONITORING_ROOT: /app/data/runtime/monitoring
+      RUNTIME_MONITORING_HOST_ROOT: "${RUNTIME_MONITORING_HOST_ROOT:?Set the absolute host runtime directory}"
+      CAPTURE_WINDOW_SECONDS: "${CAPTURE_WINDOW_SECONDS:-10}"
+      CAPTURE_STOP_TIMEOUT_SECONDS: "${CAPTURE_STOP_TIMEOUT_SECONDS:-15}"
+      EXTRACTION_TIMEOUT_SECONDS: "${EXTRACTION_TIMEOUT_SECONDS:-120}"
+      CICFLOWMETER_V3_IMAGE: "${CICFLOWMETER_V3_IMAGE:-rf-nids-cicflowmeter-v3:a26aae27}"
+      CICFLOWMETER_V3_IMAGE_DIGEST: "${CICFLOWMETER_V3_IMAGE_DIGEST:-sha256:b12b3a4a4218968aba2436685a4eb113473e5681de70705409e834e4613a879b}"
+      # Empty by default; only the exact allowlisted candidate is accepted by Settings.
+      RF_NIDS_DEMO_MODEL: "${RF_NIDS_DEMO_MODEL:-}"
+    stop_grace_period: 180s
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config:ro
+      - ./models:/app/models:ro
+      - type: bind
+        source: "${RUNTIME_MONITORING_HOST_ROOT:?Set the absolute host runtime directory}"
+        target: /app/data/runtime/monitoring
+        bind:
+          create_host_path: false
+      # Host-equivalent privileges: required only by the runtime extractor.
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  cicflowmeter:
+    build:
+      context: docker/cicflowmeter
+    profiles: ["tools"]
+    volumes:
+      - ./data/lab/pcap:/input:ro
+      - ./data/lab/flows:/output
+    restart: "no"
+
+volumes:
+  rf_nids_postgres:
